@@ -1,8 +1,10 @@
 import type {
     ActionArgs,
     LinksFunction,
+    V2_MetaFunction,
 } from "@remix-run/node";
 import {
+    Form,
     Link,
     useActionData,
     useSearchParams,
@@ -11,11 +13,26 @@ import {
 import stylesUrl from "~/styles/login.css";
 import { db } from "~/utils/db.server";
 import { badRequest } from "~/utils/request.server";
-import { createUserSession, login } from "~/utils/session.server";
+import {
+    createUserSession,
+    login,
+    register,
+} from "~/utils/session.server";
 
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: stylesUrl },
 ];
+
+export const meta: V2_MetaFunction = () => {
+    const description =
+        "Login to submit your own jokes to Remix Jokes!";
+
+    return [
+        { name: "description", content: description },
+        { name: "twitter:description", content: description },
+        { title: "Remix Jokes | Login" },
+    ];
+};
 
 function validateUsername(username: string) {
     if (username.length < 3) {
@@ -95,13 +112,16 @@ export const action = async ({ request }: ActionArgs) => {
                     formError: `User with username ${username} already exists`,
                 });
             }
-            // create the user
-            // create their session and redirect to /jokes
-            return badRequest({
-                fieldErrors: null,
-                fields,
-                formError: "Not implemented",
-            });
+            const user = await register({ username, password });
+            if (!user) {
+                return badRequest({
+                    fieldErrors: null,
+                    fields,
+                    formError:
+                        "Something went wrong trying to create a new user.",
+                });
+            }
+            return createUserSession(user.id, redirectTo);
         }
         default: {
             return badRequest({
@@ -120,7 +140,7 @@ export default function Login() {
         <div className="container">
             <div className="content" data-light="">
                 <h1>Login</h1>
-                <form method="post">
+                <Form method="post">
                     <input
                         type="hidden"
                         name="redirectTo"
@@ -222,7 +242,7 @@ export default function Login() {
                     <button type="submit" className="button">
                         Submit
                     </button>
-                </form>
+                </Form>
             </div>
             <div className="links">
                 <ul>
